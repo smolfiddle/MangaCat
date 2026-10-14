@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/brand.dart';
 import '../../core/constants.dart';
 import '../../core/format.dart';
 import '../../data/csv_codec.dart';
@@ -107,7 +108,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.note_add_outlined),
+              leading: const Icon(Icons.note_add_rounded),
               title: const Text('Create new CSV'),
               onTap: () {
                 Navigator.of(context).pop();
@@ -154,7 +155,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         title: const Text('MangaCat'),
         actions: <Widget>[
           IconButton(
-            icon: const Icon(Icons.settings_outlined),
+            icon: const Icon(Icons.settings_rounded),
             tooltip: 'Settings',
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
@@ -169,6 +170,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       body: Stack(
         children: <Widget>[
+          Positioned(
+            left: 12,
+            bottom: 24,
+            child: IgnorePointer(
+              child: Text(
+                'カタログ',
+                style: TextStyle(
+                  fontSize: 64,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white.withValues(alpha: 0.04),
+                ),
+              ),
+            ),
+          ),
           if (recents.isEmpty)
             const Center(
               child: Padding(
@@ -176,7 +191,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: <Widget>[
-                    Icon(Icons.pets, size: 56, color: AppColors.textSecondary),
+                    BrandMark(size: 56),
                     SizedBox(height: 16),
                     Text(
                       'No lists yet.\nOpen or create a CSV to start your catalogue.',
@@ -212,20 +227,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 for (final list in recents) _tile(list),
               ],
             ),
-          Positioned(
-            right: 8,
-            bottom: 24,
-            child: IgnorePointer(
-              child: Text(
-                'カタログ',
-                style: TextStyle(
-                  fontSize: 72,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white.withValues(alpha: 0.04),
-                ),
-              ),
-            ),
-          ),
         ],
       ),
     );
@@ -233,23 +234,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget _tile(RecentList list) {
     return ListTile(
-      leading: const Icon(Icons.description_outlined),
+      leading: const Icon(Icons.description_rounded),
       title: Text(list.name, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Text(
         '${list.count} ${list.count == 1 ? 'entry' : 'entries'} · '
         'opened ${formatDay(DateTime.fromMillisecondsSinceEpoch(list.lastOpenedMs))}',
         style: const TextStyle(fontSize: 12),
       ),
-      trailing: list.dirty
-          ? Container(
-              width: 8,
-              height: 8,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.accent,
-              ),
-            )
-          : null,
+      trailing: list.dirty ? const DirtyDot() : null,
       onTap: () => _openList(list),
       onLongPress: () => _removeFromRecents(list),
     );

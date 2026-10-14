@@ -125,6 +125,8 @@ void main() {
       await tester.tap(find.text(digit));
       await tester.pump();
     }
+    await tester.ensureVisible(find.text('Continue'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
     expect(find.text('Confirm your PIN'), findsOneWidget);
@@ -133,6 +135,8 @@ void main() {
       await tester.tap(find.text(digit));
       await tester.pump();
     }
+    await tester.ensureVisible(find.text('Create PIN'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Create PIN'));
     await tester.pumpAndSettle();
     expect(find.textContaining('No lists yet'), findsOneWidget);

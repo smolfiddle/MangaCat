@@ -36,6 +36,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   Future<void> _restore(AuditRecord record) async {
     final controller = ref.read(trackerControllerProvider.notifier);
     final restored = await controller.restoreFromAudit(record);
+    final handle = controller.lastUndoHandle;
     if (!mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     messenger.clearSnackBars();
@@ -51,7 +52,9 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           label: 'Undo',
           onPressed: () {
             messenger.hideCurrentSnackBar();
-            controller.undoLast();
+            if (handle != null) {
+              controller.undoWith(handle);
+            }
           },
         ),
       ),
@@ -92,7 +95,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
         title: const Text('History'),
         actions: <Widget>[
           IconButton(
-            icon: const Icon(Icons.delete_sweep_outlined),
+            icon: const Icon(Icons.delete_sweep_rounded),
             tooltip: 'Clear log',
             onPressed: _records.isEmpty ? null : _clearLog,
           ),
@@ -100,11 +103,10 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       ),
       body: Column(
         children: <Widget>[
-          SizedBox(
-            height: 56,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
               children: <Widget>[
                 ChoiceChip(
                   label: const Text('All'),
@@ -160,10 +162,10 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   }
 
   IconData _iconFor(AuditAction action) => switch (action) {
-        AuditAction.add => Icons.add_circle_outline_rounded,
-        AuditAction.edit => Icons.edit_outlined,
+        AuditAction.add => Icons.add_circle_rounded,
+        AuditAction.edit => Icons.edit_rounded,
         AuditAction.delete => Icons.delete_outline_rounded,
-        AuditAction.batchAdd => Icons.library_add_outlined,
+        AuditAction.batchAdd => Icons.library_add_rounded,
         AuditAction.restore => Icons.restore_rounded,
       };
 }

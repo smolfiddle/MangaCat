@@ -11,6 +11,7 @@ ThemeData buildDarkTheme() {
     onSecondary: Colors.white,
     surface: AppColors.surface,
     onSurface: AppColors.textPrimary,
+    onSurfaceVariant: AppColors.textSecondary,
     error: AppColors.statusDropped,
     onError: Colors.white,
   );
@@ -72,17 +73,30 @@ ThemeData buildDarkTheme() {
       backgroundColor: AppColors.surfaceVariant,
       selectedColor: AppColors.accent,
       disabledColor: AppColors.surfaceVariant,
-      labelStyle: const TextStyle(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w500),
-      secondaryLabelStyle: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+      labelStyle: const TextStyle(color: AppColors.textPrimary, fontSize: 12, fontWeight: FontWeight.w500),
+      secondaryLabelStyle: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
       side: BorderSide.none,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.all(Radius.circular(AppShape.chipRadius)),
+      ),
+    ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(
+        backgroundColor: AppColors.accent,
+        foregroundColor: Colors.white,
+        disabledBackgroundColor: AppColors.surfaceVariant,
+        disabledForegroundColor: AppColors.textSecondary,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(AppShape.chipRadius)),
+        ),
       ),
     ),
     inputDecorationTheme: const InputDecorationTheme(
       filled: true,
       fillColor: AppColors.surfaceVariant,
       hintStyle: TextStyle(color: AppColors.textSecondary),
+      labelStyle: TextStyle(color: AppColors.textSecondary),
+      counterStyle: TextStyle(color: AppColors.textSecondary, fontSize: 12),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.all(Radius.circular(AppShape.chipRadius)),
         borderSide: BorderSide.none,

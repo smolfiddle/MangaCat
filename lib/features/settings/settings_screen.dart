@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/brand.dart';
 import '../../core/constants.dart';
 import '../../data/settings_store.dart';
 import '../../state/pin_controller.dart';
@@ -77,7 +78,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             },
           ),
           ListTile(
-            leading: const Icon(Icons.extension_outlined),
+            leading: const Icon(Icons.extension_rounded),
             title: const Text('Scan extensions'),
             subtitle: Text(_extensions),
             trailing: const Icon(Icons.chevron_right_rounded),
@@ -85,7 +86,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           const _SectionHeader('About'),
           const ListTile(
-            leading: Icon(Icons.pets, color: AppColors.accent),
+            leading: BrandMark(size: 40),
             title: Text('MangaCat'),
             subtitle: Text('v$kAppVersion · Offline by design'),
           ),

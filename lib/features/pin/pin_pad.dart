@@ -68,11 +68,13 @@ class PinKeypad extends StatelessWidget {
                 if (key == '<') {
                   return _KeyButton(
                     onPressed: enabled ? onBackspace : null,
-                    child: const Icon(Icons.backspace_outlined, size: 22),
+                    semanticLabel: 'Backspace',
+                    child: const Icon(Icons.backspace_rounded, size: 22),
                   );
                 }
                 return _KeyButton(
                   onPressed: enabled ? () => onDigit(key) : null,
+                  semanticLabel: key,
                   child: Text(
                     key,
                     style: const TextStyle(
@@ -91,25 +93,34 @@ class PinKeypad extends StatelessWidget {
 }
 
 class _KeyButton extends StatelessWidget {
-  const _KeyButton({required this.onPressed, required this.child});
+  const _KeyButton({
+    required this.onPressed,
+    required this.child,
+    this.semanticLabel,
+  });
 
   final VoidCallback? onPressed;
   final Widget child;
+  final String? semanticLabel;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 88,
-      height: 72,
-      child: Padding(
-        padding: const EdgeInsets.all(6),
-        child: Material(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(AppShape.cardRadius),
-          child: InkWell(
+    return Semantics(
+      button: true,
+      label: semanticLabel,
+      child: SizedBox(
+        width: 88,
+        height: 72,
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: Material(
+            color: AppColors.surface,
             borderRadius: BorderRadius.circular(AppShape.cardRadius),
-            onTap: onPressed,
-            child: Center(child: child),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(AppShape.cardRadius),
+              onTap: onPressed,
+              child: Center(child: child),
+            ),
           ),
         ),
       ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/constants.dart';
 import '../../core/enums.dart';
 import '../../data/models/entry.dart';
 import '../../state/tracker_controller.dart';
@@ -126,7 +127,7 @@ class _ChoiceTile extends StatelessWidget {
       dense: true,
       title: Text(label, style: const TextStyle(fontSize: 15)),
       trailing: selected
-          ? const Icon(Icons.check_rounded, color: Color(0xFFE84E8A), size: 20)
+          ? const Icon(Icons.check_rounded, color: AppColors.accent, size: 20)
           : null,
       onTap: onTap,
     );

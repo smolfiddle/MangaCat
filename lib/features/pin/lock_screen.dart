@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants.dart';
@@ -21,11 +22,15 @@ class _LockScreenState extends ConsumerState<LockScreen> {
   bool get _canSubmit => _pin.length >= 4 && _pin.length <= 6 && !_busy;
 
   void _onDigit(String digit) {
-    if (_pin.length >= 6) return;
+    if (_pin.length >= 6 || _busy) return;
+    HapticFeedback.selectionClick();
     setState(() {
       _pin += digit;
       _error = null;
     });
+    if (_pin.length == 6) {
+      _submit();
+    }
   }
 
   void _onBackspace() {
@@ -47,9 +52,11 @@ class _LockScreenState extends ConsumerState<LockScreen> {
         case PinVerifyResult.wrong:
           _error = 'Wrong PIN. Try again.';
           _shakeTick++;
+          HapticFeedback.heavyImpact();
         case PinVerifyResult.lockedOut:
           _error = 'Too many attempts.';
           _shakeTick++;
+          HapticFeedback.heavyImpact();
       }
     });
   }
@@ -108,12 +115,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                 FilledButton(
                   onPressed: _canSubmit && !cooling ? _submit : null,
                   style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.accent,
-                    foregroundColor: Colors.white,
                     minimumSize: const Size(200, 48),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppShape.chipRadius),
-                    ),
                   ),
                   child: const Text('Unlock'),
                 ),

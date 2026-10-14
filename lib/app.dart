@@ -5,6 +5,7 @@ import 'core/theme.dart';
 import 'features/home/home_screen.dart';
 import 'features/pin/lock_screen.dart';
 import 'features/pin/pin_setup_screen.dart';
+import 'features/tracker/external_change_dialog.dart';
 import 'features/tracker/tracker_screen.dart';
 import 'state/pin_controller.dart';
 import 'state/providers.dart';
@@ -84,25 +85,7 @@ class _RootGateState extends ConsumerState<RootGate> with WidgetsBindingObserver
       if (result != ExternalCheckResult.conflict) return;
       final context = rootNavigatorKey.currentContext;
       if (context == null || !context.mounted) return;
-      final load = await showDialog<bool>(
-        context: context,
-        builder: (BuildContext context) => AlertDialog(
-          title: const Text('The CSV changed outside the app.'),
-          content: const Text(
-            'Load the file (external changes win) or keep your unsaved edits?',
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Keep my edits'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Load file'),
-            ),
-          ],
-        ),
-      );
+      final load = await showExternalChangeDialog(context);
       if (load == null) return;
       if (load) {
         await controller.reloadFromCsv();

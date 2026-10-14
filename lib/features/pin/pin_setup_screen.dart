@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/brand.dart';
 import '../../core/constants.dart';
 import '../../state/pin_controller.dart';
 import 'pin_pad.dart';
@@ -24,6 +26,7 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
 
   void _onDigit(String digit) {
     if (_pin.length >= 6) return;
+    HapticFeedback.selectionClick();
     setState(() {
       _pin += digit;
       _error = null;
@@ -54,6 +57,7 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
         _confirming = false;
         _shakeTick++;
       });
+      HapticFeedback.heavyImpact();
       return;
     }
     setState(() => _busy = true);
@@ -72,7 +76,7 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
-                const Icon(Icons.pets, size: 48, color: AppColors.accent),
+                const BrandMark(size: 48),
                 const SizedBox(height: 12),
                 Text('MangaCat', style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 4),
@@ -80,6 +84,18 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
                   _confirming ? 'Confirm your PIN' : 'Choose a 4–6 digit PIN',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
+                if (!_confirming) ...<Widget>[
+                  const SizedBox(height: 8),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 40),
+                    child: Text(
+                      'No recovery: a forgotten PIN means reinstalling. '
+                      'Your CSV files stay safe.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 32),
                 Shaker(trigger: _shakeTick, child: PinDots(length: _pin.length)),
                 const SizedBox(height: 12),
@@ -111,12 +127,7 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
                 FilledButton(
                   onPressed: _canSubmit ? _submit : null,
                   style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.accent,
-                    foregroundColor: Colors.white,
                     minimumSize: const Size(200, 48),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppShape.chipRadius),
-                    ),
                   ),
                   child: Text(_confirming ? 'Create PIN' : 'Continue'),
                 ),

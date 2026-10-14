@@ -94,9 +94,16 @@ class TrackerState {
 
 enum ExternalCheckResult { unchanged, reloaded, conflict }
 
+class UndoHandle {
+  const UndoHandle(this.id);
+
+  final int id;
+}
+
 class TrackerController extends AsyncNotifier<TrackerState> {
   ListRepository? _repo;
   Future<void> Function()? _undo;
+  int _undoSeq = 0;
 
   @override
   Future<TrackerState> build() async => TrackerState.empty();
@@ -204,11 +211,19 @@ class TrackerController extends AsyncNotifier<TrackerState> {
     final repo = _requireRepo;
     await repo.markDirty();
     _undo = undo;
+    if (undo != null) _undoSeq++;
     final entries = await repo.entries();
     state = AsyncData(
       _data.copyWith(entries: entries, dirty: true, canUndo: undo != null),
     );
     await _touchRecents();
+  }
+
+  UndoHandle? get lastUndoHandle => _undo == null ? null : UndoHandle(_undoSeq);
+
+  Future<void> undoWith(UndoHandle handle) async {
+    if (_undo == null || handle.id != _undoSeq) return;
+    await undoLast();
   }
 
   bool _sameEntry(Entry a, Entry b) =>
@@ -264,6 +279,23 @@ class TrackerController extends AsyncNotifier<TrackerState> {
     await _afterMutation(() async {
       await repo.updateEntry(prev, audit: false);
     });
+  }
+
+  Future<void> autosaveEntry(Entry entry) async {
+    final repo = _requireRepo;
+    Entry? previous;
+    for (final e in _data.entries) {
+      if (e.id == entry.id) {
+        previous = e;
+        break;
+      }
+    }
+    if (previous == null || _sameEntry(previous, entry)) return;
+    await repo.updateEntry(entry);
+    await repo.markDirty();
+    final entries = await repo.entries();
+    state = AsyncData(_data.copyWith(entries: entries, dirty: true));
+    await _touchRecents();
   }
 
   Future<void> toggleCompleted(Entry entry) async {

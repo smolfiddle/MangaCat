@@ -12,12 +12,15 @@ class StatusDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: statusColorOf(status),
+    return Semantics(
+      label: 'Status: ${status.label}',
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: statusColorOf(status),
+        ),
       ),
     );
   }
@@ -51,8 +54,8 @@ class RatingStars extends StatelessWidget {
         if (onChanged == null) return icon;
         return IconButton(
           visualDensity: VisualDensity.compact,
-          padding: const EdgeInsets.all(2),
-          constraints: const BoxConstraints(),
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
           onPressed: () => onChanged!(rating == value ? 0 : value),
           icon: icon,
         );

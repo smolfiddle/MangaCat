@@ -10,6 +10,11 @@ class SettingsStore {
   static const String _kRelock = 'relock_on_background';
   static const String _kAutofocus = 'autofocus_search';
   static const String _kExtensions = 'scan_extensions';
+  static const String _kGestureHint = 'gesture_hint_shown';
+
+  bool get gestureHintShown => _prefs.getBool(_kGestureHint) ?? false;
+
+  Future<void> markGestureHintShown() => _prefs.setBool(_kGestureHint, true);
 
   bool get relockOnBackground => _prefs.getBool(_kRelock) ?? false;
 

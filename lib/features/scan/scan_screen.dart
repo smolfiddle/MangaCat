@@ -140,6 +140,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
       );
     }
     if (!mounted) return;
+    final handle = controller.lastUndoHandle;
     final messenger = ScaffoldMessenger.of(context);
     messenger.clearSnackBars();
     messenger.showSnackBar(
@@ -152,7 +153,9 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
                 label: 'Undo',
                 onPressed: () {
                   messenger.hideCurrentSnackBar();
-                  controller.undoLast();
+                  if (handle != null) {
+                    controller.undoWith(handle);
+                  }
                 },
               ),
       ),
@@ -256,7 +259,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            const Icon(Icons.folder_copy_outlined, size: 56, color: AppColors.textSecondary),
+            const Icon(Icons.folder_copy_rounded, size: 56, color: AppColors.textSecondary),
             const SizedBox(height: 16),
             const Text(
               'Pick a folder to catalogue.\n'

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/brand.dart';
 import '../../core/constants.dart';
 import '../../core/enums.dart';
 import '../../data/csv_codec.dart';
@@ -15,6 +16,7 @@ import '../history/history_screen.dart';
 import '../scan/scan_screen.dart';
 import 'add_entry_sheet.dart';
 import 'entry_detail_sheet.dart';
+import 'external_change_dialog.dart';
 import 'list_settings_sheet.dart';
 import 'tracker_widgets.dart';
 
@@ -69,6 +71,15 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen> {
         await _resolveConflict();
       }
       if (!mounted) return;
+      final settings = ref.read(settingsStoreProvider);
+      final hasEntries =
+          ref.read(trackerControllerProvider).value?.entries.isNotEmpty ?? false;
+      if (!settings.gestureHintShown && hasEntries) {
+        settings.markGestureHintShown();
+        _snack(
+          'Swipe left to delete · swipe right to mark completed · long-press to select',
+        );
+      }
       if (ref.read(settingsStoreProvider).autofocusSearch) {
         _searchFocus.requestFocus();
       }
@@ -92,6 +103,7 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen> {
   void _snackWithUndo(String message) {
     final messenger = ScaffoldMessenger.of(context);
     final controller = ref.read(trackerControllerProvider.notifier);
+    final handle = controller.lastUndoHandle;
     messenger.clearSnackBars();
     messenger.showSnackBar(
       SnackBar(
@@ -101,7 +113,9 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen> {
           label: 'Undo',
           onPressed: () {
             messenger.hideCurrentSnackBar();
-            controller.undoLast();
+            if (handle != null) {
+              controller.undoWith(handle);
+            }
           },
         ),
       ),
@@ -289,25 +303,7 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen> {
   }
 
   Future<void> _resolveConflict() async {
-    final load = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext context) => AlertDialog(
-        title: const Text('The CSV changed outside the app.'),
-        content: const Text(
-          'Load the file (external changes win) or keep your unsaved edits?',
-        ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Keep my edits'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Load file'),
-          ),
-        ],
-      ),
-    );
+    final load = await showExternalChangeDialog(context);
     if (!mounted || load == null) return;
     if (load) {
       await ref.read(trackerControllerProvider.notifier).reloadFromCsv();
@@ -408,7 +404,9 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen> {
     final state = asyncState.value;
     return Scaffold(
       appBar: _buildAppBar(state),
-      floatingActionButton: state != null && state.query.isEmpty
+      floatingActionButton: state != null &&
+              state.entries.isNotEmpty &&
+              state.query.isEmpty
           ? FloatingActionButton(
               onPressed: () => _promptAdd(''),
               tooltip: 'Add series',
@@ -428,12 +426,13 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen> {
       return AppBar(
         leading: IconButton(
           icon: const Icon(Icons.close_rounded),
+          tooltip: 'Exit selection',
           onPressed: () => setState(_selected.clear),
         ),
         title: Text('${_selected.length} selected'),
         actions: <Widget>[
           PopupMenuButton<EntryStatus>(
-            icon: const Icon(Icons.flag_outlined),
+            icon: const Icon(Icons.flag_rounded),
             tooltip: 'Set status',
             onSelected: _setStatusForSelection,
             itemBuilder: (BuildContext context) => EntryStatus.values.map((EntryStatus status) {
@@ -451,6 +450,7 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.delete_outline_rounded),
+            tooltip: 'Delete selected',
             onPressed: _deleteSelection,
           ),
         ],
@@ -467,14 +467,9 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen> {
             ),
           ),
           if (state?.dirty ?? false)
-            Container(
-              margin: const EdgeInsets.only(left: 8),
-              width: 8,
-              height: 8,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.accent,
-              ),
+            const Padding(
+              padding: EdgeInsets.only(left: 8),
+              child: DirtyDot(),
             ),
         ],
       ),
@@ -592,6 +587,7 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen> {
                   ? null
                   : IconButton(
                       icon: const Icon(Icons.clear_rounded, size: 18),
+                      tooltip: 'Clear search',
                       onPressed: () {
                         _debounce?.cancel();
                         _search.clear();
@@ -627,15 +623,18 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen> {
                             ? ListView(
                                 physics: const AlwaysScrollableScrollPhysics(),
                                 children: <Widget>[
-                                  if (query.isEmpty) ...<Widget>[
-                                    const SizedBox(height: 80),
-                                    const Center(
-                                      child: Text(
-                                        'No entries match the filters.',
-                                        style: TextStyle(color: AppColors.textSecondary),
+                                  const SizedBox(height: 64),
+                                  Center(
+                                    child: Text(
+                                      query.isEmpty
+                                          ? 'No entries match the filters.'
+                                          : 'Not in your list.',
+                                      style: const TextStyle(
+                                        color: AppColors.textSecondary,
+                                        fontSize: 15,
                                       ),
                                     ),
-                                  ],
+                                  ),
                                 ],
                               )
                             : ListView.builder(
@@ -677,7 +676,7 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: <Widget>[
-          const Icon(Icons.pets, size: 56, color: AppColors.textSecondary),
+          const BrandMark(size: 56),
           const SizedBox(height: 16),
           const Text(
             'Add your first title',
@@ -757,11 +756,10 @@ class _FilterChips extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final controller = ref.read(trackerControllerProvider.notifier);
-    return SizedBox(
-      height: 56,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
         children: <Widget>[
           ChoiceChip(
             label: const Text('All'),
@@ -778,9 +776,6 @@ class _FilterChips extends ConsumerWidget {
           ],
           const SizedBox(width: 8),
           FilterChip(
-            avatar: state.readFilter == ReadFilterMode.off
-                ? null
-                : const Icon(Icons.done_rounded, size: 16, color: Colors.white),
             label: Text(state.readFilter.label),
             selected: state.readFilter != ReadFilterMode.off,
             onSelected: (_) => controller.cycleReadFilter(),

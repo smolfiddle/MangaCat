@@ -30,6 +30,8 @@ class EntryDetailSheet extends ConsumerStatefulWidget {
 class _EntryDetailSheetState extends ConsumerState<EntryDetailSheet> {
   Entry? _entry;
   Timer? _debounce;
+  Timer? _savedTimer;
+  bool _showSaved = false;
   late final TrackerController _tracker =
       ref.read(trackerControllerProvider.notifier);
   late final TextEditingController _title = TextEditingController();
@@ -59,9 +61,10 @@ class _EntryDetailSheetState extends ConsumerState<EntryDetailSheet> {
   @override
   void dispose() {
     if (_debounce?.isActive ?? false) {
-      _flushPendingSave();
+      _flushPendingSave(indicator: false);
     }
     _debounce?.cancel();
+    _savedTimer?.cancel();
     _title.dispose();
     _artist.dispose();
     _progress.dispose();
@@ -89,20 +92,36 @@ class _EntryDetailSheetState extends ConsumerState<EntryDetailSheet> {
     );
   }
 
-  void _flushPendingSave() {
+  void _flushPendingSave({bool indicator = true}) {
     final next = _composeEntry();
     if (next == null) return;
     _entry = next;
-    _tracker.updateEntry(next);
+    _tracker.autosaveEntry(next);
+    if (indicator && mounted) {
+      _markSaved();
+    }
   }
 
   Future<void> _save() async {
     final next = _composeEntry();
     if (next == null) return;
     _entry = next;
-    await _tracker.updateEntry(next);
+    await _tracker.autosaveEntry(next);
     if (!mounted) return;
     setState(() {});
+    _markSaved();
+  }
+
+  void _markSaved() {
+    _savedTimer?.cancel();
+    if (mounted) {
+      setState(() => _showSaved = true);
+    }
+    _savedTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) {
+        setState(() => _showSaved = false);
+      }
+    });
   }
 
   Future<void> _delete() async {
@@ -164,11 +183,6 @@ class _EntryDetailSheetState extends ConsumerState<EntryDetailSheet> {
                       });
                       _save();
                     },
-                    labelStyle: TextStyle(
-                      color: selected ? Colors.white : AppColors.textPrimary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
                   );
                 }).toList(),
               ),
@@ -211,10 +225,29 @@ class _EntryDetailSheetState extends ConsumerState<EntryDetailSheet> {
               ),
             ],
             const SizedBox(height: 12),
-            Text(
-              'Created ${formatDateTime(entry.createdAt)}\n'
-              'Updated ${formatDateTime(entry.updatedAt)}',
-              style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    'Created ${formatDateTime(entry.createdAt)}\n'
+                    'Updated ${formatDateTime(entry.updatedAt)}',
+                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                  ),
+                ),
+                AnimatedOpacity(
+                  opacity: _showSaved ? 1 : 0,
+                  duration: const Duration(milliseconds: 200),
+                  child: const Text(
+                    'Saved',
+                    style: TextStyle(
+                      color: AppColors.statusCompleted,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             TextButton.icon(
