@@ -320,3 +320,9 @@ Home. Full token table: specification §8.
   per-list accent tint, CSV "Save a copy" export.
 - **v2 (discussion only):** chapter progress with quick +1, cover thumbnails
   from local files, optional backup reminder.
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE).
