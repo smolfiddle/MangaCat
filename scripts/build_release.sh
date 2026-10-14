@@ -45,7 +45,7 @@ fi
 
 (
   cd "$DIST"
-  sha256sum ./* > SHA256SUMS
+  find . -maxdepth 1 -type f -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS
 )
 
 echo

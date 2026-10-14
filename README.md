@@ -314,7 +314,7 @@ Home. Full token table: specification §8.
 
 ## Roadmap
 
-- **v1.0 (this codebase, tagged 0.0.1):** everything above — PIN, library,
+- **v1.0 (this codebase, version 0.0.1):** everything above — PIN, library,
   tracker, add/edit/delete, undo, save-to-CSV, history, settings, scan.
 - **v1.1:** list stats ("47 completed · 12 reading"), rating-based sort,
   per-list accent tint, CSV "Save a copy" export.
