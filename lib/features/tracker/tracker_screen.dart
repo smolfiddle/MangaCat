@@ -579,7 +579,7 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen> {
             controller: _search,
             focusNode: _searchFocus,
             decoration: InputDecoration(
-              hintText: 'Search title or artist',
+              hintText: 'Search title or artist/studio/org',
               prefixIcon: const Icon(Icons.search_rounded, size: 20),
               suffixIcon: state.query.isEmpty
                   ? null

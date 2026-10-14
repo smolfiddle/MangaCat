@@ -123,7 +123,7 @@ class _EntryDetailSheetState extends ConsumerState<EntryDetailSheet> {
             const SizedBox(height: 10),
             TextField(
               controller: _artist,
-              decoration: const InputDecoration(labelText: 'Artist'),
+              decoration: const InputDecoration(labelText: 'Artist/Studio/Org'),
               onChanged: (_) => _scheduleSave(),
             ),
             if (_advanced) ...<Widget>[

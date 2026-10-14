@@ -92,7 +92,7 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
             controller: _artistController,
             textInputAction: TextInputAction.done,
             decoration: InputDecoration(
-              hintText: 'Artist (optional)',
+              hintText: 'Artist/Studio/Org (optional)',
               suffixIcon: TextButton(
                 onPressed: _skipArtist,
                 child: const Text('Skip'),
