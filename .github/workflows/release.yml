@@ -48,6 +48,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 && exit 0
           gh release create "$GITHUB_REF_NAME" $(find dist -type f) \
             --title "MangaCat $GITHUB_REF_NAME" \
             --generate-notes
