@@ -77,18 +77,26 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen> {
   }
 
   void _snack(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.clearSnackBars();
+    messenger.showSnackBar(
       SnackBar(content: Text(message), duration: const Duration(seconds: 3)),
     );
   }
 
   void _snackWithUndo(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.clearSnackBars();
+    messenger.showSnackBar(
       SnackBar(
         content: Text(message),
+        duration: const Duration(seconds: 4),
         action: SnackBarAction(
           label: 'Undo',
-          onPressed: () => ref.read(trackerControllerProvider.notifier).undoLast(),
+          onPressed: () {
+            messenger.hideCurrentSnackBar();
+            ref.read(trackerControllerProvider.notifier).undoLast();
+          },
         ),
       ),
     );
@@ -390,8 +398,16 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen> {
   @override
   Widget build(BuildContext context) {
     final asyncState = ref.watch(trackerControllerProvider);
+    final state = asyncState.value;
     return Scaffold(
-      appBar: _buildAppBar(asyncState.value),
+      appBar: _buildAppBar(state),
+      floatingActionButton: state != null && state.query.isEmpty
+          ? FloatingActionButton(
+              onPressed: () => _promptAdd(''),
+              tooltip: 'Add series',
+              child: const Icon(Icons.add_rounded),
+            )
+          : null,
       body: asyncState.when(
         data: (TrackerState state) => _buildBody(state),
         loading: () => const Center(child: CircularProgressIndicator()),

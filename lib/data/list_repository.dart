@@ -75,7 +75,7 @@ class ListRepository {
     } else {
       final FileFingerprint? lastSaved = await lastSavedFingerprint();
       final current = FileFingerprint(stat.size, stat.mtimeMs);
-      if (lastSaved == null || lastSaved != current) {
+      if (lastSaved == null || !lastSaved.matches(current)) {
         await _importCsv(warnings, stat);
         reloaded = true;
       }

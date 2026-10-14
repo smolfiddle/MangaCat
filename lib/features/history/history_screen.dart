@@ -36,16 +36,22 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   Future<void> _restore(AuditRecord record) async {
     final restored = await ref.read(trackerControllerProvider.notifier).restoreFromAudit(record);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.clearSnackBars();
+    messenger.showSnackBar(
       SnackBar(
         content: Text(
           restored.length == 1
               ? "Restored '${restored.single.title}'"
               : 'Restored ${restored.length} entries',
         ),
+        duration: const Duration(seconds: 4),
         action: SnackBarAction(
           label: 'Undo',
-          onPressed: () => ref.read(trackerControllerProvider.notifier).undoLast(),
+          onPressed: () {
+            messenger.hideCurrentSnackBar();
+            ref.read(trackerControllerProvider.notifier).undoLast();
+          },
         ),
       ),
     );

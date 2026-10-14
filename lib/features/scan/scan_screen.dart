@@ -138,14 +138,20 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
           );
     }
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.clearSnackBars();
+    messenger.showSnackBar(
       SnackBar(
         content: Text('Added ${toAdd.length} · Skipped $skipped'),
+        duration: const Duration(seconds: 4),
         action: toAdd.isEmpty
             ? null
             : SnackBarAction(
                 label: 'Undo',
-                onPressed: () => ref.read(trackerControllerProvider.notifier).undoLast(),
+                onPressed: () {
+                  messenger.hideCurrentSnackBar();
+                  ref.read(trackerControllerProvider.notifier).undoLast();
+                },
               ),
       ),
     );

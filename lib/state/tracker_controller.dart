@@ -375,7 +375,7 @@ class TrackerController extends AsyncNotifier<TrackerState> {
     if (repo == null) return ExternalCheckResult.unchanged;
     final current = await repo.sourceFingerprint();
     final lastSaved = await repo.lastSavedFingerprint();
-    if (lastSaved != null && lastSaved == current) {
+    if (lastSaved != null && lastSaved.matches(current)) {
       return ExternalCheckResult.unchanged;
     }
     if (_data.dirty) return ExternalCheckResult.conflict;

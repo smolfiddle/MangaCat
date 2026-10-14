@@ -39,6 +39,8 @@ class RootGate extends ConsumerStatefulWidget {
 
 class _RootGateState extends ConsumerState<RootGate> with WidgetsBindingObserver {
   bool _everUnlocked = false;
+  bool _wasBackgrounded = false;
+  bool _checkingExternal = false;
 
   @override
   void initState() {
@@ -55,10 +57,12 @@ class _RootGateState extends ConsumerState<RootGate> with WidgetsBindingObserver
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
+      _wasBackgrounded = true;
       if (ref.read(settingsStoreProvider).relockOnBackground) {
         ref.read(pinControllerProvider.notifier).lock();
       }
-    } else if (state == AppLifecycleState.resumed) {
+    } else if (state == AppLifecycleState.resumed && _wasBackgrounded) {
+      _wasBackgrounded = false;
       _checkExternal();
     }
   }
@@ -70,9 +74,11 @@ class _RootGateState extends ConsumerState<RootGate> with WidgetsBindingObserver
   }
 
   Future<void> _checkExternal() async {
+    if (_checkingExternal) return;
     if (ref.read(pinControllerProvider) is! PinUnlocked) return;
     final controller = ref.read(trackerControllerProvider.notifier);
     if (!controller.isOpen) return;
+    _checkingExternal = true;
     try {
       final result = await controller.checkExternal();
       if (result != ExternalCheckResult.conflict) return;
@@ -107,6 +113,8 @@ class _RootGateState extends ConsumerState<RootGate> with WidgetsBindingObserver
       }
     } catch (_) {
       // The list may have been closed while the app was away.
+    } finally {
+      _checkingExternal = false;
     }
   }
 
