@@ -30,6 +30,8 @@ class EntryDetailSheet extends ConsumerStatefulWidget {
 class _EntryDetailSheetState extends ConsumerState<EntryDetailSheet> {
   Entry? _entry;
   Timer? _debounce;
+  late final TrackerController _tracker =
+      ref.read(trackerControllerProvider.notifier);
   late final TextEditingController _title = TextEditingController();
   late final TextEditingController _artist = TextEditingController();
   late final TextEditingController _progress = TextEditingController();
@@ -56,6 +58,9 @@ class _EntryDetailSheetState extends ConsumerState<EntryDetailSheet> {
 
   @override
   void dispose() {
+    if (_debounce?.isActive ?? false) {
+      _flushPendingSave();
+    }
     _debounce?.cancel();
     _title.dispose();
     _artist.dispose();
@@ -69,21 +74,33 @@ class _EntryDetailSheetState extends ConsumerState<EntryDetailSheet> {
 
   void _scheduleSave() {
     _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 350), _save);
+    _debounce = Timer(const Duration(milliseconds: 350), _flushPendingSave);
   }
 
-  Future<void> _save() async {
+  Entry? _composeEntry() {
     final entry = _entry;
-    if (entry == null) return;
-    final next = entry.copyWith(
+    if (entry == null) return null;
+    return entry.copyWith(
       title: _title.text.trim().isEmpty ? entry.title : _title.text.trim(),
       artist: _artist.text.trim(),
       progress: _progress.text,
       notes: _notes.text,
       updatedAt: DateTime.now(),
     );
+  }
+
+  void _flushPendingSave() {
+    final next = _composeEntry();
+    if (next == null) return;
     _entry = next;
-    await ref.read(trackerControllerProvider.notifier).updateEntry(next);
+    _tracker.updateEntry(next);
+  }
+
+  Future<void> _save() async {
+    final next = _composeEntry();
+    if (next == null) return;
+    _entry = next;
+    await _tracker.updateEntry(next);
     if (!mounted) return;
     setState(() {});
   }
@@ -91,7 +108,7 @@ class _EntryDetailSheetState extends ConsumerState<EntryDetailSheet> {
   Future<void> _delete() async {
     final entry = _entry;
     if (entry == null) return;
-    await ref.read(trackerControllerProvider.notifier).deleteEntries(<int>[entry.id]);
+    await _tracker.deleteEntries(<int>[entry.id]);
     if (!mounted) return;
     Navigator.of(context).pop(true);
   }

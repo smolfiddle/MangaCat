@@ -74,6 +74,27 @@ void main() {
     await repo.close();
   });
 
+  test('external change with unsaved edits opens as a conflict', () async {
+    final saf = FakeSaf();
+    final uri = uniqueUri('conflict');
+    saf.put(uri, 'id,title,artist\r\n1,Alpha,Ann\r\n');
+    final repo = await ListRepository.open(uri: uri, saf: saf);
+    await repo.load();
+    await repo.addEntries(<EntryDraft>[const EntryDraft(title: 'Local only')]);
+    await repo.markDirty();
+    await repo.close();
+
+    saf.put(uri, 'id,title,artist\r\n9,FromPC,Mallory\r\n');
+    final reopened = await ListRepository.open(uri: uri, saf: saf);
+    final report = await reopened.load();
+    expect(report.conflict, isTrue);
+    expect(report.reloadedFromCsv, isFalse);
+    final entries = await reopened.entries();
+    expect(entries.length, 2);
+    expect(await reopened.isDirty(), isTrue);
+    await reopened.close();
+  });
+
   test('ids are never reused after deletion', () async {
     final saf = FakeSaf();
     final uri = uniqueUri('ids');

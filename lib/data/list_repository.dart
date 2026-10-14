@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:sqflite/sqflite.dart' show DatabaseException;
+
 import 'csv_codec.dart';
 import 'fingerprint.dart';
 import 'models/audit_record.dart';
@@ -22,11 +24,13 @@ class OpenReport {
     required this.warnings,
     required this.reloadedFromCsv,
     required this.workspaceRebuilt,
+    this.conflict = false,
   });
 
   final List<String> warnings;
   final bool reloadedFromCsv;
   final bool workspaceRebuilt;
+  final bool conflict;
 }
 
 class ListRepository {
@@ -52,7 +56,7 @@ class ListRepository {
     var rebuilt = false;
     try {
       db = await WorkspaceDb.open(uri);
-    } catch (_) {
+    } on DatabaseException {
       rebuilt = true;
       db = await WorkspaceDb.open(uri, recreate: true);
     }
@@ -68,6 +72,7 @@ class ListRepository {
     if (!stat.exists) throw SourceMissingException(sourceUri);
     displayName = stat.name;
     var reloaded = false;
+    var conflict = false;
 
     final bool firstImport = await _db.metaGet('advanced_mode') == null;
     if (firstImport) {
@@ -76,14 +81,20 @@ class ListRepository {
       final FileFingerprint? lastSaved = await lastSavedFingerprint();
       final current = FileFingerprint(stat.size, stat.mtimeMs);
       if (lastSaved == null || !lastSaved.matches(current)) {
-        await _importCsv(warnings, stat);
-        reloaded = true;
+        if (await isDirty()) {
+          conflict = true;
+        } else {
+          await _importCsv(warnings, stat);
+          reloaded = true;
+        }
       }
     }
+    await _db.metaSet('source_uri', sourceUri);
     return OpenReport(
       warnings: warnings,
       reloadedFromCsv: reloaded,
       workspaceRebuilt: workspaceRebuilt,
+      conflict: conflict,
     );
   }
 
@@ -126,7 +137,7 @@ class ListRepository {
   }) async {
     final now = DateTime.now();
     final created = <Entry>[];
-    await _db.db.transaction((txn) async {
+    await _db.transaction((txn) async {
       for (final draft in drafts) {
         final int id = await _db.takeNextId(txn);
         final entry = Entry(
@@ -143,90 +154,102 @@ class ListRepository {
         await _db.insertEntry(entry, txn);
         created.add(entry);
       }
+      if (!audit) return;
+      if (created.length == 1 && !batch) {
+        final entry = created.single;
+        await _db.addAudit(
+          AuditRecord(
+            seq: 0,
+            ts: now,
+            action: AuditAction.add,
+            entryId: entry.id,
+            summary: "Added '${entry.title}' (#${entry.id})",
+            snapshots: <Entry>[entry],
+          ),
+          txn,
+        );
+      } else if (created.isNotEmpty) {
+        await _db.addAudit(
+          AuditRecord(
+            seq: 0,
+            ts: now,
+            action: AuditAction.batchAdd,
+            entryId: null,
+            summary: 'Added ${created.length} titles',
+            snapshots: created,
+          ),
+          txn,
+        );
+      }
     });
-    if (!audit) return created;
-    if (created.length == 1 && !batch) {
-      final entry = created.single;
-      await _db.addAudit(
-        AuditRecord(
-          seq: 0,
-          ts: now,
-          action: AuditAction.add,
-          entryId: entry.id,
-          summary: "Added '${entry.title}' (#${entry.id})",
-          snapshots: <Entry>[entry],
-        ),
-      );
-    } else if (created.isNotEmpty) {
-      await _db.addAudit(
-        AuditRecord(
-          seq: 0,
-          ts: now,
-          action: AuditAction.batchAdd,
-          entryId: null,
-          summary: 'Added ${created.length} titles',
-          snapshots: created,
-        ),
-      );
-    }
     return created;
   }
 
   Future<Entry> updateEntry(Entry next, {bool audit = true}) async {
-    final Entry? previous = await _db.entryById(next.id);
     final Entry updated = next.copyWith(updatedAt: DateTime.now());
-    await _db.updateEntry(updated);
-    if (audit && previous != null) {
-      await _db.addAudit(
-        AuditRecord(
-          seq: 0,
-          ts: updated.updatedAt,
-          action: AuditAction.edit,
-          entryId: updated.id,
-          summary: "Edited '${updated.title}' (#${updated.id})",
-          snapshots: <Entry>[previous],
-        ),
-      );
-    }
+    await _db.transaction((txn) async {
+      final Entry? previous = await _db.entryById(next.id, txn);
+      await _db.updateEntry(updated, txn);
+      if (audit && previous != null) {
+        await _db.addAudit(
+          AuditRecord(
+            seq: 0,
+            ts: updated.updatedAt,
+            action: AuditAction.edit,
+            entryId: updated.id,
+            summary: "Edited '${updated.title}' (#${updated.id})",
+            snapshots: <Entry>[previous],
+          ),
+          txn,
+        );
+      }
+    });
     return updated;
   }
 
   Future<void> deleteEntries(List<Entry> removed, {bool audit = true}) async {
     if (removed.isEmpty) return;
-    await _db.deleteIds(removed.map((Entry e) => e.id));
-    if (!audit) return;
     final now = DateTime.now();
-    final String summary = removed.length == 1
-        ? "Deleted '${removed.single.title}' (#${removed.single.id})"
-        : 'Deleted ${removed.length} entries';
-    await _db.addAudit(
-      AuditRecord(
-        seq: 0,
-        ts: now,
-        action: AuditAction.delete,
-        entryId: removed.length == 1 ? removed.single.id : null,
-        summary: summary,
-        snapshots: removed,
-      ),
-    );
+    await _db.transaction((txn) async {
+      await _db.deleteIds(removed.map((Entry e) => e.id), txn);
+      if (!audit) return;
+      final String summary = removed.length == 1
+          ? "Deleted '${removed.single.title}' (#${removed.single.id})"
+          : 'Deleted ${removed.length} entries';
+      await _db.addAudit(
+        AuditRecord(
+          seq: 0,
+          ts: now,
+          action: AuditAction.delete,
+          entryId: removed.length == 1 ? removed.single.id : null,
+          summary: summary,
+          snapshots: removed,
+        ),
+        txn,
+      );
+    });
   }
 
   Future<Entry> restoreEntry(Entry snapshot, {bool audit = true}) async {
-    final Entry? occupying = await _db.entryById(snapshot.id);
-    final int id = occupying == null ? snapshot.id : await _db.takeNextId();
-    final Entry restored = snapshot.copyWith(id: id, updatedAt: DateTime.now());
-    await _db.insertEntry(restored);
-    if (!audit) return restored;
-    await _db.addAudit(
-      AuditRecord(
-        seq: 0,
-        ts: restored.updatedAt,
-        action: AuditAction.restore,
-        entryId: restored.id,
-        summary: "Restored '${restored.title}' (#${restored.id})",
-        snapshots: <Entry>[restored],
-      ),
-    );
+    late Entry restored;
+    await _db.transaction((txn) async {
+      final Entry? occupying = await _db.entryById(snapshot.id, txn);
+      final int id = occupying == null ? snapshot.id : await _db.takeNextId(txn);
+      restored = snapshot.copyWith(id: id, updatedAt: DateTime.now());
+      await _db.insertEntry(restored, txn);
+      if (!audit) return;
+      await _db.addAudit(
+        AuditRecord(
+          seq: 0,
+          ts: restored.updatedAt,
+          action: AuditAction.restore,
+          entryId: restored.id,
+          summary: "Restored '${restored.title}' (#${restored.id})",
+          snapshots: <Entry>[restored],
+        ),
+        txn,
+      );
+    });
     return restored;
   }
 

@@ -17,10 +17,15 @@ class RecentsStore {
     try {
       final dynamic decoded = jsonDecode(raw);
       if (decoded is! List) return const <RecentList>[];
-      final lists = decoded
-          .whereType<Map<String, dynamic>>()
-          .map(RecentList.fromJson)
-          .toList();
+      final lists = <RecentList>[];
+      for (final dynamic item in decoded) {
+        if (item is! Map<String, dynamic>) continue;
+        try {
+          lists.add(RecentList.fromJson(item));
+        } catch (_) {
+          // Skip a malformed record instead of discarding every recent list.
+        }
+      }
       lists.sort((RecentList a, RecentList b) => b.lastOpenedMs.compareTo(a.lastOpenedMs));
       return lists;
     } catch (_) {

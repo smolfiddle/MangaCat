@@ -114,8 +114,9 @@ class TrackerController extends AsyncNotifier<TrackerState> {
   Future<OpenReport> open({required String uri, required String name}) async {
     await close();
     state = const AsyncLoading<TrackerState>();
+    ListRepository? repo;
     try {
-      final repo = await ListRepository.open(uri: uri, saf: ref.read(safGatewayProvider));
+      repo = await ListRepository.open(uri: uri, saf: ref.read(safGatewayProvider));
       final report = await repo.load();
       final meta = await repo.metaAll();
       final entries = await repo.entries();
@@ -146,6 +147,13 @@ class TrackerController extends AsyncNotifier<TrackerState> {
       await _touchRecents();
       return report;
     } catch (error, stack) {
+      if (repo != null) {
+        try {
+          await repo.close();
+        } catch (_) {
+          // The workspace is already going away.
+        }
+      }
       state = AsyncError<TrackerState>(error, stack);
       rethrow;
     }
@@ -316,10 +324,25 @@ class TrackerController extends AsyncNotifier<TrackerState> {
 
   Future<void> undoLast() async {
     final undo = _undo;
+    final repo = _repo;
     if (undo == null) return;
+    if (repo == null) {
+      _undo = null;
+      if (state.hasValue) {
+        state = AsyncData(_data.copyWith(canUndo: false));
+      }
+      return;
+    }
     _undo = null;
-    final repo = _requireRepo;
-    await undo();
+    try {
+      await undo();
+    } catch (_) {
+      _undo = undo;
+      if (state.hasValue) {
+        state = AsyncData(_data.copyWith(canUndo: true));
+      }
+      return;
+    }
     await repo.markDirty();
     final entries = await repo.entries();
     state = AsyncData(_data.copyWith(entries: entries, dirty: true, canUndo: false));
@@ -388,8 +411,11 @@ class TrackerController extends AsyncNotifier<TrackerState> {
   }
 
   Future<void> setAdvanced(bool value) async {
-    await _requireRepo.metaSet('advanced_mode', value ? '1' : '0');
-    state = AsyncData(_data.copyWith(advanced: value));
+    final repo = _requireRepo;
+    await repo.metaSet('advanced_mode', value ? '1' : '0');
+    await repo.markDirty();
+    state = AsyncData(_data.copyWith(advanced: value, dirty: true));
+    await _touchRecents();
   }
 
   Future<void> setShowId(bool value) async {

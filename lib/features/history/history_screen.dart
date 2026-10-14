@@ -34,7 +34,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   }
 
   Future<void> _restore(AuditRecord record) async {
-    final restored = await ref.read(trackerControllerProvider.notifier).restoreFromAudit(record);
+    final controller = ref.read(trackerControllerProvider.notifier);
+    final restored = await controller.restoreFromAudit(record);
     if (!mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     messenger.clearSnackBars();
@@ -50,7 +51,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           label: 'Undo',
           onPressed: () {
             messenger.hideCurrentSnackBar();
-            ref.read(trackerControllerProvider.notifier).undoLast();
+            controller.undoLast();
           },
         ),
       ),

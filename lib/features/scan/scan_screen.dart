@@ -35,7 +35,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
     final saf = ref.read(safGatewayProvider);
     try {
       final dir = await saf.pickDirectory();
-      if (dir == null) return;
+      if (!mounted || dir == null) return;
       setState(() {
         _dirUri = dir.uri;
         _dirName = dir.name;
@@ -56,6 +56,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
     final saf = ref.read(safGatewayProvider);
     final extensions = ref.read(settingsStoreProvider).scanExtensions;
     final List<SafChild> children = await saf.listChildren(uri);
+    if (!mounted) return;
     final List<Entry> entries =
         ref.read(trackerControllerProvider).value?.entries ?? const <Entry>[];
     final existing = entries.map((Entry e) => normalizeForMatch(e.title)).toSet();
@@ -132,10 +133,11 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
         .where((_ScanCandidate c) => !(skipDuplicates && c.inList))
         .toList(growable: false);
     final skipped = selected.length - toAdd.length;
+    final controller = ref.read(trackerControllerProvider.notifier);
     if (toAdd.isNotEmpty) {
-      await ref.read(trackerControllerProvider.notifier).batchAddTitles(
-            toAdd.map((_ScanCandidate c) => c.name).toList(growable: false),
-          );
+      await controller.batchAddTitles(
+        toAdd.map((_ScanCandidate c) => c.name).toList(growable: false),
+      );
     }
     if (!mounted) return;
     final messenger = ScaffoldMessenger.of(context);
@@ -150,7 +152,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
                 label: 'Undo',
                 onPressed: () {
                   messenger.hideCurrentSnackBar();
-                  ref.read(trackerControllerProvider.notifier).undoLast();
+                  controller.undoLast();
                 },
               ),
       ),

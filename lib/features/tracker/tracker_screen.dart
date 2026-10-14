@@ -55,15 +55,20 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen> {
     try {
       final report = await controller.open(uri: widget.uri, name: widget.name);
       if (!mounted) return;
-      for (final warning in report.warnings) {
-        _snack(warning);
-      }
+      final notices = <String>[...report.warnings];
       if (report.workspaceRebuilt) {
-        _snack('Local history was reset after a corrupt workspace.');
+        notices.add('Local history was reset after a corrupt workspace.');
       }
       if (report.reloadedFromCsv) {
-        _snack('Reloaded from file.');
+        notices.add('Reloaded from file.');
       }
+      if (notices.isNotEmpty) {
+        _snack(notices.join('\n'));
+      }
+      if (report.conflict) {
+        await _resolveConflict();
+      }
+      if (!mounted) return;
       if (ref.read(settingsStoreProvider).autofocusSearch) {
         _searchFocus.requestFocus();
       }
@@ -86,6 +91,7 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen> {
 
   void _snackWithUndo(String message) {
     final messenger = ScaffoldMessenger.of(context);
+    final controller = ref.read(trackerControllerProvider.notifier);
     messenger.clearSnackBars();
     messenger.showSnackBar(
       SnackBar(
@@ -95,7 +101,7 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen> {
           label: 'Undo',
           onPressed: () {
             messenger.hideCurrentSnackBar();
-            ref.read(trackerControllerProvider.notifier).undoLast();
+            controller.undoLast();
           },
         ),
       ),
@@ -209,6 +215,7 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen> {
           status: result.status,
         );
     if (!mounted) return;
+    _debounce?.cancel();
     _search.clear();
     ref.read(trackerControllerProvider.notifier).setQuery('');
     _searchFocus.requestFocus();
@@ -586,6 +593,7 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen> {
                   : IconButton(
                       icon: const Icon(Icons.clear_rounded, size: 18),
                       onPressed: () {
+                        _debounce?.cancel();
                         _search.clear();
                         ref.read(trackerControllerProvider.notifier).setQuery('');
                       },

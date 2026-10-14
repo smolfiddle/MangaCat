@@ -11,9 +11,9 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
-import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.OutputStream
+import java.util.concurrent.Executors
 
 /**
  * Storage Access Framework gateway.
@@ -29,11 +29,19 @@ class MainActivity : FlutterActivity() {
 
     private var pendingResult: MethodChannel.Result? = null
     private var pendingRequest: Int = 0
+    private val ioExecutor = Executors.newSingleThreadExecutor()
 
     override fun configureFlutterEngine(engine: FlutterEngine) {
         super.configureFlutterEngine(engine)
         MethodChannel(engine.dartExecutor.binaryMessenger, channelName)
             .setMethodCallHandler { call, result -> onMethodCall(call, result) }
+    }
+
+    override fun onDestroy() {
+        pendingResult?.let { runCatching { it.success(null) } }
+        pendingResult = null
+        ioExecutor.shutdown()
+        super.onDestroy()
     }
 
     private fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
@@ -278,12 +286,15 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun runSaf(result: MethodChannel.Result, block: () -> Any?) {
-        try {
-            result.success(block())
-        } catch (e: SecurityException) {
-            result.error("permission", e.message, null)
-        } catch (e: Exception) {
-            result.error("io", e.message, null)
+        ioExecutor.execute {
+            try {
+                val value = block()
+                runOnUiThread { result.success(value) }
+            } catch (e: SecurityException) {
+                runOnUiThread { result.error("permission", e.message, null) }
+            } catch (e: Exception) {
+                runOnUiThread { result.error("io", e.message, null) }
+            }
         }
     }
 }

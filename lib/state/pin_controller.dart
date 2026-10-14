@@ -34,7 +34,11 @@ class PinController extends Notifier<PinGateState> {
   PinGateState build() {
     ref.onDispose(() => _ticker?.cancel());
     if (!_pin.hasPin) return const PinSetupRequired();
-    return _lockedState();
+    final locked = _lockedState();
+    if (locked.remaining > Duration.zero) {
+      _startTickerIfNeeded();
+    }
+    return locked;
   }
 
   PinLocked _lockedState() => PinLocked(remaining: _pin.remainingCooldown);

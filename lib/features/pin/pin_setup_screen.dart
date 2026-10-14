@@ -18,6 +18,7 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
   bool _confirming = false;
   String? _error;
   bool _busy = false;
+  int _shakeTick = 0;
 
   bool get _canSubmit => _pin.length >= 4 && _pin.length <= 6 && !_busy;
 
@@ -51,6 +52,7 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
         _pin = '';
         _first = '';
         _confirming = false;
+        _shakeTick++;
       });
       return;
     }
@@ -79,7 +81,7 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
                 const SizedBox(height: 32),
-                Shaker(trigger: _error ?? '', child: PinDots(length: _pin.length)),
+                Shaker(trigger: _shakeTick, child: PinDots(length: _pin.length)),
                 const SizedBox(height: 12),
                 SizedBox(
                   height: 20,

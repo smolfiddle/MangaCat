@@ -57,8 +57,12 @@ class WorkspaceDb {
     return rows.map(Entry.fromDb).toList(growable: false);
   }
 
-  Future<Entry?> entryById(int id) async {
-    final rows = await db.query('entries', where: 'id = ?', whereArgs: <Object?>[id], limit: 1);
+  Future<T> transaction<T>(Future<T> Function(DatabaseExecutor txn) action) =>
+      db.transaction(action);
+
+  Future<Entry?> entryById(int id, [DatabaseExecutor? executor]) async {
+    final ex = executor ?? db;
+    final rows = await ex.query('entries', where: 'id = ?', whereArgs: <Object?>[id], limit: 1);
     if (rows.isEmpty) return null;
     return Entry.fromDb(rows.first);
   }
@@ -90,8 +94,9 @@ class WorkspaceDb {
     );
   }
 
-  Future<void> updateEntry(Entry entry) async {
-    await db.update(
+  Future<void> updateEntry(Entry entry, [DatabaseExecutor? executor]) async {
+    final ex = executor ?? db;
+    await ex.update(
       'entries',
       entry.toDb(),
       where: 'id = ?',
@@ -99,11 +104,12 @@ class WorkspaceDb {
     );
   }
 
-  Future<void> deleteIds(Iterable<int> ids) async {
+  Future<void> deleteIds(Iterable<int> ids, [DatabaseExecutor? executor]) async {
     final list = ids.toList(growable: false);
     if (list.isEmpty) return;
+    final ex = executor ?? db;
     final placeholders = List.filled(list.length, '?').join(', ');
-    await db.delete('entries', where: 'id IN ($placeholders)', whereArgs: list);
+    await ex.delete('entries', where: 'id IN ($placeholders)', whereArgs: list);
   }
 
   Future<void> replaceAll(List<Entry> entries) async {
@@ -115,10 +121,10 @@ class WorkspaceDb {
     });
   }
 
-  Future<void> addAudit(AuditRecord record) async {
-    final values = record.toDb();
-    await db.insert('audit_log', values);
-    await db.rawDelete(
+  Future<void> addAudit(AuditRecord record, [DatabaseExecutor? executor]) async {
+    final ex = executor ?? db;
+    await ex.insert('audit_log', record.toDb());
+    await ex.rawDelete(
       'DELETE FROM audit_log WHERE seq <= (SELECT MAX(seq) FROM audit_log) - $kAuditRetention',
     );
   }

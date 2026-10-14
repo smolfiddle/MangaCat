@@ -69,6 +69,13 @@ void main() {
       expect(report.entries.single.artist, 'Ann');
     });
 
+    test('semicolons inside quoted fields keep the comma dialect', () {
+      final report = MangaCatCsv.decode(
+        bytes('id,title,artist,notes\r\n1,Alpha,Ann,"a;b;c;d;e"\r\n'),
+      );
+      expect(report.entries.single.notes, 'a;b;c;d;e');
+    });
+
     test('rejects semicolon-delimited files', () {
       expect(
         () => MangaCatCsv.decode(bytes('id;title;artist\n1;Alpha;Ann')),

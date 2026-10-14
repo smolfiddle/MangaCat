@@ -32,29 +32,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _editExtensions() async {
-    final controller = TextEditingController(text: _extensions);
     final result = await showDialog<String>(
       context: context,
-      builder: (BuildContext context) => AlertDialog(
-        title: const Text('Scan extensions'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(hintText: 'cbz, zip, epub'),
-        ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(controller.text),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
+      builder: (BuildContext context) => _ExtensionsDialog(initial: _extensions),
     );
-    controller.dispose();
     if (result == null) return;
     final parsed = SettingsStore.parseExtensionInput(result);
     await ref.read(settingsStoreProvider).setScanExtensions(parsed);
@@ -139,6 +120,49 @@ class _SectionHeader extends StatelessWidget {
           fontWeight: FontWeight.w500,
         ),
       ),
+    );
+  }
+}
+
+class _ExtensionsDialog extends StatefulWidget {
+  const _ExtensionsDialog({required this.initial});
+
+  final String initial;
+
+  @override
+  State<_ExtensionsDialog> createState() => _ExtensionsDialogState();
+}
+
+class _ExtensionsDialogState extends State<_ExtensionsDialog> {
+  late final TextEditingController _controller =
+      TextEditingController(text: widget.initial);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Scan extensions'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        decoration: const InputDecoration(hintText: 'cbz, zip, epub'),
+        onSubmitted: (String value) => Navigator.of(context).pop(value),
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(_controller.text),
+          child: const Text('Save'),
+        ),
+      ],
     );
   }
 }

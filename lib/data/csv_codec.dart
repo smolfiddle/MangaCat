@@ -92,6 +92,7 @@ abstract final class MangaCatCsv {
 
     final Csv codec = Csv(
       lineDelimiter: '\r\n',
+      autoDetect: false,
       skipEmptyLines: false,
       dynamicTyping: false,
     );
