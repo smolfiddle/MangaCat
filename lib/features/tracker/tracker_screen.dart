@@ -190,6 +190,30 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen> {
     );
   }
 
+  Future<bool> _confirmDelete(Entry entry) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) => AlertDialog(
+        title: const Text('Delete entry?'),
+        content: Text(
+          '"${entry.title}" will be removed from this list. You can undo right after.',
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.statusDropped),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    return confirmed ?? false;
+  }
+
   Future<void> _deleteOne(Entry entry) => _snackUndoAfter(
         ref.read(trackerControllerProvider.notifier).deleteEntries(<int>[entry.id]),
         "Deleted '${entry.title}'",
@@ -622,6 +646,7 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen> {
                         child: visible.isEmpty
                             ? ListView(
                                 physics: const AlwaysScrollableScrollPhysics(),
+                                padding: const EdgeInsets.only(bottom: 80),
                                 children: <Widget>[
                                   const SizedBox(height: 64),
                                   Center(
@@ -639,6 +664,7 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen> {
                               )
                             : ListView.builder(
                                 physics: const AlwaysScrollableScrollPhysics(),
+                                padding: const EdgeInsets.only(bottom: 80),
                                 itemCount: visible.length,
                                 itemBuilder: (BuildContext context, int index) =>
                                     _row(state, visible[index]),
@@ -696,6 +722,10 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen> {
   Widget _row(TrackerState state, Entry entry) {
     return Dismissible(
       key: ValueKey<int>(entry.id),
+      dismissThresholds: const <DismissDirection, double>{
+        DismissDirection.startToEnd: 0.6,
+        DismissDirection.endToStart: 0.6,
+      },
       background: _swipeBackground(
         alignment: Alignment.centerLeft,
         color: AppColors.statusCompleted,
@@ -709,7 +739,10 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen> {
       confirmDismiss: (DismissDirection direction) async {
         if (direction == DismissDirection.startToEnd) {
           await _toggleCompleted(entry);
-        } else {
+          return false;
+        }
+        final confirmed = await _confirmDelete(entry);
+        if (confirmed) {
           await _deleteOne(entry);
         }
         return false;
