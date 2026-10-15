@@ -33,7 +33,7 @@ migrate_working_dir/
 /build/
 /dist/
 /coverage/
-The_Artifact_Method.md
+/The_Artifact_Method/
 
 # Symbolication related
 app.*.symbols
