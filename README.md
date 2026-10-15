@@ -1,5 +1,9 @@
 # MangaCat
 
+<p align="center">
+  <img src="docs/logo.svg" width="96" alt="MangaCat paw logo">
+</p>
+
 **MangaCat** (short for *Manga Catalogue*) is a fast, private, fully offline
 series tracker for Android. It answers one question in under two seconds —
 **"have I read this already?"** — and then gets out of the way. Paste a title,
@@ -10,10 +14,16 @@ no cloud sync, and no network permission in the release build.
 
 - **Platform:** Android only (minSdk 26, Android 8.0+; targets API 36)
 - **Connectivity:** none — the release manifest declares zero network permissions
-- **Version:** 0.0.2
+- **Version:** 0.0.3
 - **Releases:** [github.com/smolfiddle/MangaCat/releases](https://github.com/smolfiddle/MangaCat/releases)
 - **Package:** `ph.smolfiddle.mangacat`
 - **Full specification:** [`MangaCat_Specification.md`](MangaCat_Specification.md)
+
+<p align="center">
+  <img src="docs/screenshots/tracker.png" width="240" alt="Tracker: rows with status dots, search, filter chips, add button">
+  <img src="docs/screenshots/lock.png" width="240" alt="PIN lock screen with keypad">
+  <img src="docs/screenshots/home.png" width="240" alt="Home library with Continue card">
+</p>
 
 ---
 
@@ -216,6 +226,7 @@ scripts/
   generate_keystore.sh           # one-time release signing setup
   build_release.sh               # AAB + per-ABI APKs + checksums
 test/                            # unit + widget tests
+docs/                            # logo and screenshots used in this README
 .github/workflows/ci.yml         # analyze + tests on push/PR
 .github/workflows/release.yml    # tag-triggered artifact builds + releases
 ```
