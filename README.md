@@ -10,7 +10,8 @@ no cloud sync, and no network permission in the release build.
 
 - **Platform:** Android only (minSdk 26, Android 8.0+; targets API 36)
 - **Connectivity:** none — the release manifest declares zero network permissions
-- **Version:** 0.0.1
+- **Version:** 0.0.2
+- **Releases:** [github.com/smolfiddle/MangaCat/releases](https://github.com/smolfiddle/MangaCat/releases)
 - **Package:** `ph.smolfiddle.mangacat`
 - **Full specification:** [`MangaCat_Specification.md`](MangaCat_Specification.md)
 
@@ -56,9 +57,10 @@ takes a different position:
   `progress` (free text, e.g. "ch. 143"), and `notes` columns. Toggling it on
   or off rewrites the CSV on the next save, with a warning dialog; the data
   itself is never lost from the local workspace.
-- **Swipe gestures** — swipe left to delete, swipe right to mark completed;
-  long-press enters multi-select for batch delete or batch status changes.
-  A one-time hint teaches these on first use.
+- **Swipe gestures** — swipe right to mark completed; swipe left raises a
+  **Delete entry?** confirmation (Cancel keeps the row untouched). Short swipes
+  do nothing. Long-press enters multi-select for batch delete or batch status
+  changes. A one-time hint teaches these on first use.
 - **Autosave everywhere.** Every edit writes to a per-list SQLite workspace
   immediately. A dot on the app bar (and on the Home tile) shows unsaved
   changes; **Save to CSV** writes the file and clears it.
@@ -214,7 +216,8 @@ scripts/
   generate_keystore.sh           # one-time release signing setup
   build_release.sh               # AAB + per-ABI APKs + checksums
 test/                            # unit + widget tests
-.github/workflows/release.yml    # tag-triggered artifact builds
+.github/workflows/ci.yml         # analyze + tests on push/PR
+.github/workflows/release.yml    # tag-triggered artifact builds + releases
 ```
 
 ---
@@ -233,13 +236,14 @@ Run the checks:
 
 ```bash
 flutter analyze              # zero-issue policy
-flutter test                 # unit + widget suite
+flutter test                 # unit + widget suite (41 tests)
 ```
 
 The test suite covers the CSV codec (quoting, dialects, malformed rows,
 duplicate ids, truncation), PBKDF2 against published test vectors, repository
 behavior (id assignment, restore, audit retention, conflict-on-open), the
-fingerprint comparison rules, and the PIN setup/lock widget flows.
+fingerprint comparison rules, and the PIN setup/lock widget flows. Both checks
+also run in CI on every push and pull request.
 
 ---
 
@@ -290,14 +294,19 @@ Notes and options:
 
 ### Continuous integration
 
-`.github/workflows/release.yml` builds the same artifacts on `v*` tags or by
-manual dispatch. To sign in CI, add repository secrets:
+`.github/workflows/ci.yml` runs `flutter analyze` and the full test suite on
+every push and pull request.
+
+`.github/workflows/release.yml` builds the signed release artifacts on `v*` tags
+(or by manual dispatch) and publishes them as a GitHub release with
+auto-generated notes; artifacts are also uploaded as a workflow artifact. To
+sign in CI, add repository secrets:
 
 - `KEYSTORE_BASE64` — `base64 -w0 android/keystore/mangacat-release.p12`
 - `KEY_PROPERTIES_BASE64` — `base64 -w0 android/key.properties`
 
-When the secrets are absent the workflow still builds, using debug signing.
-Artifacts are uploaded; no release is published automatically.
+When the secrets are absent the workflow still builds, using debug signing with
+a printed warning.
 
 ---
 
@@ -314,8 +323,8 @@ Home. Full token table: specification §8.
 
 ## Roadmap
 
-- **v1.0 (this codebase, version 0.0.1):** everything above — PIN, library,
-  tracker, add/edit/delete, undo, save-to-CSV, history, settings, scan.
+- **v1.0 (this codebase, through version 0.0.2):** everything above — PIN,
+  library, tracker, add/edit/delete, undo, save-to-CSV, history, settings, scan.
 - **v1.1:** list stats ("47 completed · 12 reading"), rating-based sort,
   per-list accent tint, CSV "Save a copy" export.
 - **v2 (discussion only):** chapter progress with quick +1, cover thumbnails
