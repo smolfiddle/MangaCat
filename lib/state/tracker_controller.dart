@@ -428,11 +428,8 @@ class TrackerController extends AsyncNotifier<TrackerState> {
   Future<ExternalCheckResult> checkExternal() async {
     final repo = _repo;
     if (repo == null) return ExternalCheckResult.unchanged;
-    final current = await repo.sourceFingerprint();
-    final lastSaved = await repo.lastSavedFingerprint();
-    if (lastSaved != null && lastSaved.matches(current)) {
-      return ExternalCheckResult.unchanged;
-    }
+    final changed = await repo.sourceChanged();
+    if (!changed) return ExternalCheckResult.unchanged;
     if (_data.dirty) return ExternalCheckResult.conflict;
     await reloadFromCsv();
     return ExternalCheckResult.reloaded;

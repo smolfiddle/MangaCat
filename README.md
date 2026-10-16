@@ -74,6 +74,10 @@ takes a different position:
 - **Autosave everywhere.** Every edit writes to a per-list SQLite workspace
   immediately. A dot on the app bar (and on the Home tile) shows unsaved
   changes; **Save to CSV** writes the file and clears it.
+- **Fast scroll and a clear menu.** A draggable scrollbar thumb navigates
+  long lists in one gesture, and the List menu groups actions into Data,
+  Display, and More with live states (save status, active filters, current
+  sort) instead of a flat options list.
 - **Detail sheet** — full editing with a transient *Saved* indicator,
   timestamps, and a red delete action covered by Undo.
 
@@ -93,8 +97,9 @@ takes a different position:
   workspace keyed by the file's content URI.
 - **Home library** shows every list with entry count, last-opened date, and a
   dirty badge, plus a **Continue** card for the most recent one.
-- **External edits are detected.** On resume, the file's size and modification
-  time are compared against the last saved fingerprint. If the file changed
+- **External edits are detected.** On resume, the file's contents are hashed and
+  compared against the last saved content hash (provider size and mtime can be
+  stale after out-of-band edits). If the file changed
   and you have unsaved edits, you choose: *Keep my edits* or *Discard edits &
   load file*. Otherwise the changed file loads automatically.
 - **Corrupt workspace recovery.** If the SQLite file cannot be opened it is
@@ -164,7 +169,7 @@ Each opened CSV gets a SQLite database at
 
 - `entries(id PK, title, artist, status, rating, progress, notes, created_at, updated_at)`
 - `audit_log(seq, ts, action, entry_id, snapshot_json, summary)` — FIFO 500
-- `meta` — source URI, display name, advanced mode, last-saved fingerprint,
+- `meta` — source URI, display name, advanced mode, last-saved content hash,
   next id, show-id, sort preference, default filter
 
 Ids are auto-assigned and never reused; `next_id` is persisted so deleting the

@@ -35,35 +35,31 @@ class ListSettingsSheet extends ConsumerWidget {
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: Text('List settings', style: Theme.of(context).textTheme.titleMedium),
             ),
+            const _SectionHeader('Columns'),
             SwitchListTile(
               title: const Text('Advanced mode'),
-              subtitle: const Text('status · rating · progress · notes columns'),
+              subtitle: const Text(
+                'Adds status, rating, progress, and notes to the CSV',
+              ),
               value: state.advanced,
               onChanged: (bool value) => _confirmAdvanced(context, controller, value),
             ),
             SwitchListTile(
               title: const Text('Show ID'),
+              subtitle: const Text('Display #id on each row'),
               value: state.showId,
               onChanged: controller.setShowId,
             ),
-            const Divider(),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-              child: Text('Default sort', style: Theme.of(context).textTheme.bodySmall),
-            ),
+            const _SectionHeader('Default sort'),
             for (final pref in SortPref.values)
               _ChoiceTile(
                 label: pref.label,
                 selected: state.sort == pref,
                 onTap: () => controller.setSort(pref),
               ),
-            const Divider(),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-              child: Text('Default filter', style: Theme.of(context).textTheme.bodySmall),
-            ),
+            const _SectionHeader('Default filter'),
             _ChoiceTile(
-              label: 'All',
+              label: 'All statuses',
               selected: state.defaultStatusFilter == null,
               onTap: () => controller.setDefaultStatusFilter(null),
             ),
@@ -111,6 +107,27 @@ class ListSettingsSheet extends ConsumerWidget {
     if (confirmed == true) {
       await controller.setAdvanced(value);
     }
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 2),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: AppColors.textSecondary,
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
   }
 }
 

@@ -20,8 +20,6 @@ import 'external_change_dialog.dart';
 import 'list_settings_sheet.dart';
 import 'tracker_widgets.dart';
 
-enum _TrackerMenu { scan, sort, showId, filters, history, save, listSettings }
-
 class TrackerScreen extends ConsumerStatefulWidget {
   const TrackerScreen({super.key, required this.uri, required this.name});
 
@@ -35,6 +33,7 @@ class TrackerScreen extends ConsumerStatefulWidget {
 class _TrackerScreenState extends ConsumerState<TrackerScreen> {
   final TextEditingController _search = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
+  final ScrollController _listScroll = ScrollController();
   final Set<int> _selected = <int>{};
   Timer? _debounce;
 
@@ -49,6 +48,7 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen> {
     _debounce?.cancel();
     _search.dispose();
     _searchFocus.dispose();
+    _listScroll.dispose();
     super.dispose();
   }
 
@@ -498,73 +498,143 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen> {
         ],
       ),
       actions: <Widget>[
-        PopupMenuButton<_TrackerMenu>(
+        if (state?.dirty ?? false)
+          IconButton(
+            icon: const Icon(Icons.save_rounded),
+            tooltip: 'Save to CSV',
+            onPressed: _save,
+          ),
+        IconButton(
           icon: const Icon(Icons.more_vert_rounded),
-          onSelected: (menu) {
-            switch (menu) {
-              case _TrackerMenu.scan:
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(builder: (_) => const ScanScreen()),
-                );
-              case _TrackerMenu.sort:
-                _showSortDialog();
-              case _TrackerMenu.showId:
-                final shown = ref.read(trackerControllerProvider).value?.showId ?? true;
-                ref.read(trackerControllerProvider.notifier).setShowId(!shown);
-              case _TrackerMenu.filters:
-                _showFilterSheet();
-              case _TrackerMenu.history:
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(builder: (_) => const HistoryScreen()),
-                );
-              case _TrackerMenu.save:
-                _save();
-              case _TrackerMenu.listSettings:
-                showListSettingsSheet(context, ref);
-            }
-          },
-          itemBuilder: (BuildContext context) {
-            final showId = state?.showId ?? true;
-            return <PopupMenuEntry<_TrackerMenu>>[
-              const PopupMenuItem<_TrackerMenu>(
-                value: _TrackerMenu.scan,
-                child: Text('Scan folder'),
-              ),
-              const PopupMenuItem<_TrackerMenu>(
-                value: _TrackerMenu.sort,
-                child: Text('Sort'),
-              ),
-              PopupMenuItem<_TrackerMenu>(
-                value: _TrackerMenu.showId,
-                child: Row(
+          tooltip: 'List menu',
+          onPressed: _showListMenu,
+        ),
+      ],
+    );
+  }
+
+  String _filterSummary(TrackerState state) {
+    final parts = <String>[
+      state.statusFilter == null ? 'All statuses' : state.statusFilter!.label,
+    ];
+    if (state.readFilter != ReadFilterMode.off) {
+      parts.add(state.readFilter.label);
+    }
+    return parts.join('  ·  ');
+  }
+
+  Future<void> _showListMenu() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      builder: (BuildContext sheetContext) => Consumer(
+        builder: (BuildContext context, WidgetRef ref, Widget? child) {
+          final state = ref.watch(trackerControllerProvider).value;
+          if (state == null) return const SizedBox.shrink();
+          final controller = ref.read(trackerControllerProvider.notifier);
+
+          void close() => Navigator.of(sheetContext).pop();
+
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    const Expanded(child: Text('Show ID')),
-                    if (showId)
-                      const Icon(Icons.check_rounded, size: 18, color: AppColors.accent),
+                    Text(
+                      state.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${state.entries.length} '
+                      '${state.entries.length == 1 ? 'entry' : 'entries'}'
+                      '${state.dirty ? '  ·  unsaved changes' : ''}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                   ],
                 ),
               ),
-              const PopupMenuItem<_TrackerMenu>(
-                value: _TrackerMenu.filters,
-                child: Text('Filters'),
+              const _MenuSection('Data'),
+              ListTile(
+                leading: const Icon(Icons.save_rounded),
+                title: const Text('Save to CSV'),
+                subtitle: Text(
+                  state.dirty ? 'Unsaved changes' : 'All changes saved',
+                ),
+                onTap: () {
+                  close();
+                  _save();
+                },
               ),
-              const PopupMenuItem<_TrackerMenu>(
-                value: _TrackerMenu.history,
-                child: Text('History'),
+              ListTile(
+                leading: const Icon(Icons.folder_open_rounded),
+                title: const Text('Scan folder'),
+                subtitle: const Text('Import subfolders and matching files'),
+                onTap: () {
+                  close();
+                  Navigator.of(this.context).push(
+                    MaterialPageRoute<void>(builder: (_) => const ScanScreen()),
+                  );
+                },
               ),
-              const PopupMenuItem<_TrackerMenu>(
-                value: _TrackerMenu.save,
-                child: Text('Save to CSV'),
+              const _MenuSection('Display'),
+              ListTile(
+                leading: const Icon(Icons.filter_alt_rounded),
+                title: const Text('Filters'),
+                subtitle: Text(_filterSummary(state)),
+                onTap: () {
+                  close();
+                  _showFilterSheet();
+                },
               ),
-              const PopupMenuDivider(),
-              const PopupMenuItem<_TrackerMenu>(
-                value: _TrackerMenu.listSettings,
-                child: Text('List settings'),
+              ListTile(
+                leading: const Icon(Icons.sort_rounded),
+                title: const Text('Sort'),
+                subtitle: Text(state.sort.label),
+                onTap: () {
+                  close();
+                  _showSortDialog();
+                },
               ),
-            ];
-          },
-        ),
-      ],
+              SwitchListTile(
+                secondary: const Icon(Icons.tag_rounded),
+                title: const Text('Show ID'),
+                subtitle: const Text('Display #id on each row'),
+                value: state.showId,
+                onChanged: controller.setShowId,
+              ),
+              const _MenuSection('More'),
+              ListTile(
+                leading: const Icon(Icons.history_rounded),
+                title: const Text('History'),
+                subtitle: const Text('Changes, deletions, and restores'),
+                onTap: () {
+                  close();
+                  Navigator.of(this.context).push(
+                    MaterialPageRoute<void>(builder: (_) => const HistoryScreen()),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.tune_rounded),
+                title: const Text('List settings'),
+                subtitle: const Text('Columns, advanced mode, defaults'),
+                onTap: () {
+                  close();
+                  showListSettingsSheet(this.context, ref);
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          );
+        },
+      ),
     );
   }
 
@@ -662,12 +732,23 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen> {
                                   ),
                                 ],
                               )
-                            : ListView.builder(
-                                physics: const AlwaysScrollableScrollPhysics(),
-                                padding: const EdgeInsets.only(bottom: 80),
-                                itemCount: visible.length,
-                                itemBuilder: (BuildContext context, int index) =>
-                                    _row(state, visible[index]),
+                            : SafeArea(
+                                top: false,
+                                child: Scrollbar(
+                                  controller: _listScroll,
+                                  thumbVisibility: true,
+                                  interactive: true,
+                                  thickness: 6,
+                                  radius: const Radius.circular(3),
+                                  child: ListView.builder(
+                                    controller: _listScroll,
+                                    physics: const AlwaysScrollableScrollPhysics(),
+                                    padding: const EdgeInsets.only(bottom: 80),
+                                    itemCount: visible.length,
+                                    itemBuilder: (BuildContext context, int index) =>
+                                        _row(state, visible[index]),
+                                  ),
+                                ),
                               ),
                       ),
                     ],
@@ -777,6 +858,27 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen> {
       alignment: alignment,
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Icon(icon, color: color),
+    );
+  }
+}
+
+class _MenuSection extends StatelessWidget {
+  const _MenuSection(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 2),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: AppColors.textSecondary,
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
     );
   }
 }

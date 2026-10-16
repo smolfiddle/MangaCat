@@ -107,7 +107,7 @@ File: `databases/<sha256(uri)>.db` in internal storage.
 
 - `entries(id PK, title, artist, status, rating, progress, notes, created_at, updated_at)`
 - `audit_log(seq PK AUTOINCREMENT, ts, action, entry_id, snapshot_json, summary)` — FIFO, last 500 entries
-- `meta(key, value)` — `source_uri`, `display_name`, `advanced_mode`, `last_saved_size`, `last_saved_mtime`, `show_id`, `sort_pref`
+- `meta(key, value)` — `source_uri`, `display_name`, `advanced_mode`, `last_saved_hash`, `last_saved_size`, `last_saved_mtime`, `show_id`, `sort_pref`
 
 ### 5.4 Multi-file model
 
@@ -128,7 +128,7 @@ UI screens/widgets
 1. **Open:** resolve URI → open/create workspace → parse CSV → load into `entries` → record fingerprint.
 2. **Edit:** every mutation writes to the workspace immediately (autosave), marks dirty, writes an audit entry, pushes an undo snapshot.
 3. **Save to CSV:** serialize (sorted by id, header per current mode) → write via SAF truncate → clear dirty → toast "Saved to <file>".
-4. **External change detection:** on app resume, compare CSV size+mtime against `last_saved_*` in meta. If changed → dialog: *"The CSV changed outside the app."* **[Load file]** (default, discards unsaved workspace edits — external wins) / **[Keep my edits]**.
+4. **External change detection:** on app resume, hash the CSV contents and compare against `last_saved_hash` in meta (size and mtime from some providers are stale after out-of-band edits, so the hash is authoritative; size+mtime remain a fallback for pre-hash workspaces). If changed → dialog: *"The CSV changed outside the app."* **[Load file]** (default, discards unsaved workspace edits — external wins) / **[Keep my edits]**.
 
 ---
 
@@ -150,13 +150,19 @@ UI screens/widgets
 
 ### 7.3 Tracker screen (the core)
 
-**App bar:** file name + dirty dot; overflow: Sort (name/id/recently added), Show ID toggle, Filters, History, Save to CSV, List settings.
+**App bar:** file name + dirty badge; a Save icon appears whenever there are
+unsaved changes; the overflow opens a grouped **List menu** (bottom sheet):
+*Data* (Save to CSV with state subtitle, Scan folder), *Display* (Filters with
+an active-filter summary, Sort with the current choice, Show ID switch), *More*
+(History, List settings).
 
 **Body:**
 - **Search bar** at top (autofocus on open, setting-toggleable). Debounce 150 ms. Matches `title` **and** `artist`, normalized (casefold/trim/collapse).
 - **Filter chips row:** status filter; "Read = Completed only / any except Planned" toggle chip.
 - **List rows:** `[id]` · Title — artist (secondary line) · status dot · compact rating stars (advanced only). Tap → detail sheet.
 - **Suggestion area:** matches under "In your list"; pinned action row at bottom: **＋ Add "<query>"**.
+- **Fast scroll:** a draggable scrollbar thumb on the right edge jumps through
+  long lists; the list stays lazy, no pagination needed at spec scale.
 - **Add flow:** tap Add → bottom sheet (title prefilled) → artist field (skippable — used because same title exists from different artists) → quick status chips → Save → **search field clears, keyboard stays up** → snackbar "Added '<title>'" with **Undo**. Optimized for rapid paste-add-paste-add batches.
 - **Row gestures:** swipe right = toggle completed; swipe left = delete (no confirm; Undo snackbar covers it). Long-press = multi-select → batch delete / batch set status.
 - **Pull-to-refresh:** re-check file fingerprint.
@@ -168,7 +174,7 @@ UI screens/widgets
 - All saves go straight to workspace (autosave). No Save button.
 
 ### 7.5 Batch scan
-1. Tracker overflow → **Scan folder** → SAF directory picker (one level deep; user pre-sorts the folder).
+1. Tracker → **List menu** → Scan folder → SAF directory picker (one level deep; user pre-sorts the folder).
 2. Candidates: each immediate **subfolder** + each file matching configured extensions (default: `cbz`; configurable in Settings). Name = raw folder name / file name without extension.
 3. **Preview screen:** alphabetical, checkbox per item (all pre-checked), items already in the list tagged "in list" (normalized exact title match) with a "hide duplicates" toggle.
 4. Import: if selected items include existing titles → dialog *"N selected items already exist. Add anyway / Skip them."*
@@ -182,7 +188,7 @@ UI screens/widgets
 
 ### 7.7 Settings
 - **Global:** change PIN, re-lock on background toggle, scan extensions, about/version.
-- **Per list (tracker overflow):** advanced mode toggle (with warning dialog, both directions), show ID, default sort, default filter.
+- **Per list (List menu → List settings):** advanced mode toggle (with warning dialog, both directions), show ID, default sort, default filter.
 
 ### 7.8 Save to CSV
 - No confirmation; idempotent. Success → toast, dirty badge clears.
@@ -233,7 +239,7 @@ UI screens/widgets
 | Malformed CSV row | Parse | Skip row, warn with line numbers after load |
 | Wrong delimiter file | Header sniff | Reject: "Not a valid MangaCat CSV" |
 | Unknown extra columns | Header vs schema | Load known columns, warn that extras are ignored |
-| CSV edited on PC while open | Fingerprint on resume | Dialog; Load file (default) / Keep my edits |
+| CSV edited on PC while open | Content fingerprint on resume | Dialog; Load file (default) / Keep my edits |
 | CSV deleted/moved externally | SAF resolution fail on save | Error dialog → re-pick or remove from recents |
 | Corrupt workspace | DB open failure | Rebuild from CSV, warn "Local history was reset" |
 | Duplicate id in CSV | Parse | Reassign next free id, warn |

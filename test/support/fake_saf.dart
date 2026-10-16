@@ -7,6 +7,8 @@ class FakeSaf implements SafGateway {
   final Map<String, List<int>> files = <String, List<int>>{};
   final Map<String, int> mtimes = <String, int>{};
   final Map<String, List<SafChild>> children = <String, List<SafChild>>{};
+  final Map<String, ({int size, int mtimeMs})> staleStats =
+      <String, ({int size, int mtimeMs})>{};
   int _clock = 1000;
 
   SafDocument? pickFileResult;
@@ -64,11 +66,12 @@ class FakeSaf implements SafGateway {
     if (data == null) {
       return SafDocument(uri: uri, name: _name(uri), size: -1, mtimeMs: -1, exists: false);
     }
+    final stale = staleStats[uri];
     return SafDocument(
       uri: uri,
       name: _name(uri),
-      size: data.length,
-      mtimeMs: mtimes[uri]!,
+      size: stale?.size ?? data.length,
+      mtimeMs: stale?.mtimeMs ?? mtimes[uri]!,
       exists: true,
     );
   }

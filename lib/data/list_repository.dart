@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:crypto/crypto.dart';
 import 'package:sqflite/sqflite.dart' show DatabaseException;
 
 import 'csv_codec.dart';
@@ -78,9 +79,8 @@ class ListRepository {
     if (firstImport) {
       await _importCsv(warnings, stat);
     } else {
-      final FileFingerprint? lastSaved = await lastSavedFingerprint();
-      final current = FileFingerprint(stat.size, stat.mtimeMs);
-      if (lastSaved == null || !lastSaved.matches(current)) {
+      final bool changed = await sourceChanged();
+      if (changed) {
         if (await isDirty()) {
           conflict = true;
         } else {
@@ -116,6 +116,7 @@ class ListRepository {
     warnings.addAll(report.warnings);
     await _db.replaceAll(report.entries);
     await _db.metaSet('advanced_mode', report.advanced ? '1' : '0');
+    await _db.metaSet('last_saved_hash', sha256.convert(bytes).toString());
     await _db.metaSet(_kLastSavedSize, '${stat.size}');
     await _db.metaSet(_kLastSavedMtime, '${stat.mtimeMs}');
     await _db.metaSet('dirty', '0');
@@ -260,20 +261,32 @@ class ListRepository {
 
   Future<SafDocument> saveCsv({required bool advanced}) async {
     final String csv = await exportCsv(advanced: advanced);
-    final SafDocument doc = await _saf.writeBytes(
-      sourceUri,
-      Uint8List.fromList(utf8.encode(csv)),
-    );
+    final Uint8List payload = Uint8List.fromList(utf8.encode(csv));
+    final SafDocument doc = await _saf.writeBytes(sourceUri, payload);
+    await _db.metaSet('last_saved_hash', sha256.convert(payload).toString());
     await _db.metaSet(_kLastSavedSize, '${doc.size}');
     await _db.metaSet(_kLastSavedMtime, '${doc.mtimeMs}');
     await _db.metaSet('dirty', '0');
     return doc;
   }
 
-  Future<FileFingerprint> sourceFingerprint() async {
+  /// True when the file on disk differs from what was last saved or imported.
+  ///
+  /// The content hash is authoritative: some providers report stale size and
+  /// mtime after out-of-band edits (adb push, sync tools) while serving fresh
+  /// bytes. Size plus mtime remain a fallback for workspaces created before
+  /// the hash existed.
+  Future<bool> sourceChanged() async {
     final SafDocument stat = await _saf.stat(sourceUri);
     if (!stat.exists) throw SourceMissingException(sourceUri);
-    return FileFingerprint(stat.size, stat.mtimeMs);
+    final String? storedHash = await _db.metaGet('last_saved_hash');
+    if (storedHash == null) {
+      final FileFingerprint? lastSaved = await lastSavedFingerprint();
+      if (lastSaved == null) return true;
+      return !lastSaved.matches(FileFingerprint(stat.size, stat.mtimeMs));
+    }
+    final Uint8List bytes = await _saf.readBytes(sourceUri);
+    return sha256.convert(bytes).toString() != storedHash;
   }
 
   Future<FileFingerprint?> lastSavedFingerprint() async {

@@ -59,11 +59,10 @@ void main() {
     saf.put(uri, 'id,title,artist\r\n1,Alpha,Ann\r\n');
     final repo = await ListRepository.open(uri: uri, saf: saf);
     await repo.load();
-    final before = await repo.sourceFingerprint();
-    expect(await repo.lastSavedFingerprint(), before);
+    expect(await repo.sourceChanged(), isFalse);
 
     saf.put(uri, 'id,title,artist\r\n9,FromPC,Mallory\r\n');
-    expect(await repo.sourceFingerprint(), isNot(before));
+    expect(await repo.sourceChanged(), isTrue);
 
     final report = await repo.reloadFromCsv();
     expect(report.reloadedFromCsv, isTrue);
@@ -71,6 +70,20 @@ void main() {
     expect(entries.single.id, 9);
     expect(entries.single.title, 'FromPC');
     expect(await repo.isDirty(), isFalse);
+    await repo.close();
+  });
+
+  test('detects external change even when stat metadata is stale', () async {
+    final saf = FakeSaf();
+    final uri = uniqueUri('stale-stat');
+    saf.put(uri, 'id,title,artist\r\n1,Alpha,Ann\r\n');
+    final repo = await ListRepository.open(uri: uri, saf: saf);
+    await repo.load();
+    final staleSize = saf.files[uri]!.length;
+    final staleMtime = saf.mtimes[uri]!;
+    saf.files[uri] = utf8.encode('id,title,artist\r\n9,Changed,X\r\n');
+    saf.staleStats[uri] = (size: staleSize, mtimeMs: staleMtime);
+    expect(await repo.sourceChanged(), isTrue);
     await repo.close();
   });
 
